@@ -1,69 +1,79 @@
 var chai = require('chai');
 var expect = chai.expect;
-//var spies = require('chai-spies');
 
 describe('mongoFactory', function() {
-	
+
 	it('can be required without blowing up', function() {
 		var mongoFactory = require('../');
-		expect(mongoFactory).to.exist;
+		expect(mongoFactory).to.exist();
 	});
-	
+
 	describe('getConnection()', function() {
-		
+
 		var mongoFactory;
-		
+
 		beforeEach(function() {
 			mongoFactory = require('../');
-		})
-		
-		describe('with no arguments passed in', function() {
-			it('should fulfill the promise', function(done) {
-				//var mongoFactory = require('../');
-				var con = mongoFactory.getConnection();
-				expect(con).to.be.fulfilled;
-				done();
-			});
-			
-			it('should return a rejected promise', function(done) {
-				//var mongoFactory = require('../');
-				var con = mongoFactory.getConnection();
-				expect(con).to.be.rejected;
-				done();
-			});
- 		});
-		
-		describe('with a null parameter', function() {
-			it('should return a rejected promise', function(done) {
-				//var mongoFactory = require('../');
-				var con = mongoFactory.getConnection(null);
-				expect(con).to.be.rejected;
-				done();
-			});
 		});
-		
-		describe('with a valid mongo string parameter', function() {
-			describe('needing to create the pool the first time', function() {
-				it('should return a fulfilled promise', function(done) {
-					var con = mongoFactory.getConnection('mongodb://localhost:27017').then(function(db) {
-						expect(con).to.be.fulfilled;
-						expect(con).to.not.be.rejected;
-						done();
-					});
+
+		it('should reject when no connection string', function() {
+			return mongoFactory.getConnection()
+				.fail(function (error) {
+					expect(error.message).to.equal('Connection string is required parameter');
+				});
+		});
+
+		it('should reject when empty connection string', function() {
+			return mongoFactory.getConnection(' ')
+				.fail(function (error) {
+					expect(error.message).to.equal('Connection string is required parameter');
+				});
+		});
+
+		it('should reject when null connection string', function() {
+			return mongoFactory.getConnection(null)
+				.fail(function (error) {
+					expect(error.message).to.equal('Connection string is required parameter');
+				});
+		});
+
+		it('should reject when undefined connection string', function() {
+			return mongoFactory.getConnection(undefined)
+				.catch(function (error) {
+					expect(error.message).to.equal('Connection string is required parameter');
+				});
+		});
+
+		it('should reject when connection fails for bad port', function() {
+			return mongoFactory.getConnection('mongodb://localhost:99999')
+				.catch(function (error) {
+					expect(error.message).to.equal('failed to connect to [localhost:99999]');
 				});
 			});
-			
-			describe('after a pool is already instantiated', function() {
-				it('should return a fulfilled promise', function(done) {
-					var con1 = mongoFactory.getConnection('mongodb://localhost:27017').then(function() {
-						var con = mongoFactory.getConnection('mongodb://localhost:27017').then(function() {
-							expect(con).to.be.fulfilled;
-							expect(con).to.not.be.rejected;
-							done();
-						});
-					});
+
+		it('should reject when connection fails for bad host', function() {
+			return mongoFactory.getConnection('mongodb://not-real-host:27017')
+				.catch(function (error) {
+					expect(error.message).to.equal('failed to connect to [not-real-host:27017]');
 				});
 			});
-		});
+
+		it('should return new database connection first time', function() {
+			return mongoFactory.getConnection('mongodb://localhost:27017')
+				.then(function (connection) {
+					expect(connection.serverConfig.host).to.equal('localhost');
+					expect(connection.serverConfig.port).to.equal(27017);
+				});
+			});
+
+		it('should return existing database connection second time', function() {
+			// pool doesn't get reset each iteration
+			return mongoFactory.getConnection('mongodb://localhost:27017')
+				.then(function (connection) {
+					expect(connection.serverConfig.host).to.equal('localhost');
+					expect(connection.serverConfig.port).to.equal(27017);
+				});
+			});
+
 	});
 });

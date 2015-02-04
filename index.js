@@ -11,6 +11,7 @@ var connections = [];
 var dbPromise = null;
 
 module.exports = function() {
+  'use strict';
 
   return {
 
@@ -22,38 +23,41 @@ module.exports = function() {
      */
     getConnection: function getConnection(connectionString) {
 
-      var def = Q.defer();
-			
-			// If connectionString is null or undefined, return an error
-			if(_.isEmpty(connectionString)) {
-				def.reject('getConnection must contain a first parameter');
-				return dbPromise = def.promise;
-			}
+      var pool;
 
-      // Check if connections contains an object with connectionString equal to the connectionString passed in and set the var to it
-      var pool = _.findWhere(connections, {connectionString: connectionString});
+      return Q.Promise(function (resolve, reject, notify) {
 
-      // If no conneciton pool has been instantiated, instantiate it, else return a connection from the pool
-      if(_.isUndefined(pool)) {
+        if(connectionString === undefined || connectionString === null || _.isEmpty(connectionString.trim())) {
+         return reject(new Error('Connection string is required parameter'));
+        }
 
-        // Initialize connection once
-        MongoClient.connect(connectionString, function(err, database) {
-					
-          if (err) {
-            def.reject(err);
-          }
+        // Check if connections contains an object with connectionString equal to the connectionString passed in and set the var to it
+        pool = _.findWhere(connections, {connectionString: connectionString});
 
-          // Add the connection to the array
-          connections.push({connectionString: connectionString, db: database});
+        // If no conneciton pool has been instantiated, instantiate it, else return a connection from the pool
+        if (_.isUndefined(pool)) {
 
-          def.resolve(database);
-        });
+          // Initialize connection once
+          MongoClient.connect(connectionString, function (err, database) {
 
-      } else {  // Else we have not instantiated the pool yet and we need to
-        def.resolve(pool.db);
-      }
+            if (err) {
+              return reject(err);
+            }
 
-      return dbPromise = def.promise;
+            connections.push({connectionString: connectionString, db: database});
+
+            resolve(database);
+
+          });
+
+        } else {  // Else we have not instantiated the pool yet and we need to
+
+          resolve(pool.db);
+
+        }
+
+      });
+
     }
   };
 }();
